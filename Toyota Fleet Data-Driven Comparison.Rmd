@@ -1,0 +1,489 @@
+---
+title: "Toyota Model Performance Analysis"
+author: "Chenxi Yang"
+date: "14/03/2020"
+header-includes:
+  - \usepackage{wrapfig}
+  - \usepackage{lipsum}
+output:
+  html_document: 
+    keep_tex: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,warning=FALSE)
+```
+
+```{r}
+# Read data
+data1<-read.csv("Saturn.csv",stringsAsFactors=F)
+data2<-read.csv("Prius2007.csv",stringsAsFactors=F)
+data3<-read.csv("Prius2019.csv",stringsAsFactors=F)
+```
+
+```{r}
+# Call library
+library(ggplot2)
+#library(rgl)
+library(gridExtra)
+```
+
+```{r}
+# Function for remove NAs
+completeFun <- function(data, desiredCols) {
+  completeVec <- complete.cases(data[, desiredCols])
+  return(data[completeVec, ])
+}
+```
+
+## Introduction
+
+Given three datasets about several aspects of three cars, including Saturn, Prius2007 and Prius2019. Regarding these datasets, we want to answer several questions using visualization by the package `ggplot2` in R.
+
+For different issues, data is differently processed to statisfy the requirement of each question. 
+
+## Are there any obvious recording errors in the files?
+
+While briefly observe the dataset, we see four errors among all three datasets.
+
+Firstly, the most obvious error for three datasets is that there are several `NA`s involved. Three bar charts show the number of `NA` in each column in the datasets provided. We observe that there are respectively 10, 5 and 0 columns containing `NA` terms in Saturn.csv, Prius2007.csv and Prius2019.csv.
+
+Secondly, the error is in the column named `Lper100km` in dataset Prius2007.csv. According to the boxplot, there are two outliers need to be focus on as one record is over 100 and the other one record is lower than 0, which are not normal.
+
+Thirdly, the error is in the column named `Gauge` in dataset Prius2019.csv. As we know the definition of `Gauge` is What the car reports as the number of 10ths of a tank at the time of the fill, which means all numbers in this column should be integers. However, we notice that there are two unnormal decimal points in the dataset. Therefore, we make a scatterplot to represent all observations and highlight the incorrect points in red color.
+
+Lastlyly, for the column named `Station` in both Prius2007.csv and Prius2019.csv, there is one identical gas station that is labelled to two names `love` and `loves`, which are 5 and 3 observations respectively. In our later analysis, we convert `love` into `loves` to make the analysis more appropriate.
+
+In order to continue further analysis, we remove the rows that have `NA` at each time using the columns and remove these unnormal records mentioned above and convert `love` to `loves`.
+
+```{r out.width= "60%",out.extra='style="float:left; padding:10px"',fig.height=3.5}
+count1<-as.numeric(0)
+for (i in 1:ncol(data1)){
+  count1[i]<-sum(is.na(data1)[,i]| data1[,i]=="")
+}
+df<-cbind.data.frame("index"=colnames(data1),"count"=count1)
+plot1<-ggplot(df, aes(y=count,x=index)) + geom_bar(stat="identity",colour="black",fill="#FF9999")+
+  labs(x="",y="count of NA",title="1st error Number of NA in Dataset Saturn")+
+   theme(plot.title = element_text(hjust = 0.5,size=6),
+         axis.text.x = element_text(angle = 30,size=4))
+
+count2<-as.numeric(0)
+for (i in 1:ncol(data2)){
+  count2[i]<-sum(is.na(data2)[,i]| data2[,i]=="")
+}
+df2<-cbind.data.frame("index"=colnames(data2),"count"=count2)
+plot2<-ggplot(df2, aes(y=count,x=index)) + geom_bar(stat="identity",colour="black",fill="#7fccf5")+
+  labs(x="",y="count of NA",title="1st error Number of NA in Dataset Prius2007")+
+   theme(plot.title = element_text(hjust = 0.5,size=6),
+         axis.text.x = element_text(angle = 30,size=4))
+
+count3<-as.numeric(0)
+for (i in 1:ncol(data3)){
+  count3[i]<-sum(is.na(data3)[,i]| data3[,i]=="")
+}
+df3<-cbind.data.frame("index"=colnames(data3),"count"=count3)
+plot3<-ggplot(df3, aes(y=count,x=index)) + geom_bar(stat="identity")+
+  labs(x="",y="count of NA",title="1st error Number of NA in Dataset Prius2019")+
+  theme(plot.title = element_text(hjust = 0.5,size=6),
+        axis.text.x = element_text(angle = 30,size=4))
+
+grid.arrange(plot1, plot2, plot3,ncol=3)
+```
+
+```{r out.width= "40%",out.extra='style="float:right; padding:10px"'}
+data2tmp<-completeFun(data2, c("Lper100km"))
+data2tmp$type<-"Prius2007"
+ggplot(data=data2tmp,aes(y=Lper100km,x=type))+geom_boxplot()+labs(x="",title="2nd error Lper100km For Prius2007") + theme(plot.title = element_text(hjust = 0.5))+
+  geom_point(data = data.frame(x = factor(data2tmp$type)[c(645,486)], y = data2tmp$Lper100km[c(645,486)]),
+             aes(x=x, y=y),
+             color = 'red')
+```
+
+
+```{r out.width= "50%",out.extra='style="float:left; padding:10px"'}
+data3tmp<-completeFun(data3, c("Gauge","Lper100km"))
+p1<-ggplot(data3tmp,aes(x=factor(Gauge),y=Lper100km))+
+  geom_point()+geom_point(data=data3tmp[data3tmp$Gauge%%1!=0,],color="red") +
+  labs(x="Gauge",title = "3rd error Lper1000km vs Gauge for Prius 2019") + theme(axis.text.x = element_text(size = 6)) + theme(plot.title = element_text(hjust = 0.5))
+p1
+```
+
+<br>
+
+```{r out.width= "50%",out.extra='style="float:right; padding:10px"'}
+df2<-cbind.data.frame(data2[grep("Love",data2$Station),],"type"="Prius 2007")
+df3<-cbind.data.frame(data3[grep("Love",data3$Station),],"type"="Prius 2019")
+df1tmp<-rbind.data.frame(df2,df3)
+df1tmp<-completeFun(df1tmp, c("Station","Litres","type"))
+ggplot(df1tmp,aes(x=factor(Station),y=Litres,color=type))+geom_point()+labs(x="Station",title="4th error Litres vs Station")+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# remove these two records from data3
+data3<-data3[data3$Gauge%%1==0,]
+
+#remove these two record from data2
+data2<-data2[-c(503,665),]
+
+# change love to loves
+data2[grep("Love",data2$Station),]$Station<-"Loves"
+
+```
+
+
+
+4 obvious recording errors
+
+
+
+
+
+## Is “Mileage” accurate, or should I continue to calculate it myself?
+
+
+```{r out.width= "65%",out.extra='style="float:right; padding:10px"',fig.width=10}
+# Is “Mileage” accurate, or should I continue to calculate it myself?
+data2tmp<-completeFun(data2, c("Mileage","Lper100km"))
+plot21<-ggplot(data2tmp, aes(x=Mileage, y=Lper100km))+
+  geom_point()+geom_abline()+labs(title="Lper100km vs Mileage for Prius 2007")+theme(plot.title = element_text(size = 14))+theme(plot.title = element_text(hjust = 0.5))
+
+data3tmp<-completeFun(data3, c("Mileage","Lper100km"))
+plot22<-ggplot(data3tmp, aes(x=Mileage, y=Lper100km))+
+  geom_point()+geom_abline()+labs(title="Lper100km vs Mileage for Prius 2019")+theme(plot.title = element_text(size = 14))+theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(plot21, plot22, ncol=2)
+```
+
+<br>
+
+Yes, we should continue to calculate `mileage` ourselves. According to the scatterplot of mileage vs Lper100km, the points do not follow the regression line (y=x), which indicates at same situation, the number of mileage reported by the car is different to the number of litres per 100 kilometers calculated by ourselves. Therefore, we should calculate it manually.
+
+<br>
+
+<br>
+
+<br>
+
+
+## What variables appear to be related to fuel efficiency? 
+
+```{r}
+# What variables appear to be related to fuel efficiency? Consider the car, the age of the car, the season of the year, the city/highway driving, the brand of gasoline.
+
+d1 <- cbind.data.frame("Lper100km"=data1$Lper100km, "age"=data1$Year-1997, "month"=data1$Month, "City"=data1$City, "type"="Saturn")
+
+d2 <- cbind.data.frame("Lper100km"=data2$Lper100km, "age"=data2$Year-2007, "month"=data2$Month, "City"=data2$City, "type"="Prius2007")
+
+d3 <- cbind.data.frame("Lper100km"=data3$Lper100km, "age"=data3$Year-2019, "month"=data3$Month, "City"=data3$City, "type"="Prius2019")
+
+dcar <- rbind.data.frame(d1,d2,d3)
+dcar <-completeFun(dcar, c("Lper100km","age","month","City"))
+dcar$age <- as.factor(dcar$age)
+dcar$month <- as.factor(dcar$month)
+```
+
+
+```{r out.width= "50%",out.extra='style="float:right; padding:10px"'}
+ggplot(dcar, aes(type,Lper100km)) + geom_boxplot()+ labs(title="Lper100km in 3 Car Types") + theme(plot.title = element_text(hjust = 0.5))
+``` 
+
+### The relationship between fuel efficiency and the car
+
+<br>
+
+According to the boxplot, we observe that Saturn has the largest median value of litres per 100 kilometers, followed by Prius2007 and Prius2019. As more litres used per 100 kilometers indicates lower fuel efficiency, so in this case, we can conclude that the newest car has higher fuel efficiency. 
+
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+
+```{r out.width= "70%",out.extra='style="float:right; padding:10px"',fig.height=4}
+ggplot(dcar, aes(age,Lper100km)) + geom_boxplot() + facet_wrap(~type)+labs(title="Lper100km vs Age in 3 Car Types") + theme(plot.title = element_text(hjust = 0.5,size = 12))
+```
+
+### The relationship between fuel efficiency and the age of the car
+
+<br>
+
+According to the boxplots below, for Saturn and Prius2007, there is no significant change of the median of the fuel efficiency, which indicates the fuel efficiency is not largely affected by the age of the car. For the boxplot of Prius2019, we see a relatively large increase of the median of the fuel efficiency from 0 year to 1 year. However, as there are only two records regarding to this car, the result may not be unrepresentative.
+
+<br>
+
+```{r }
+dc <- dcar
+dc$month <- as.numeric(dc$month)
+
+spring <- subset(dc, month=='3' | month=='4' | month=='5')
+summer <- subset(dc, month=='6' | month=='7' | month=='8')
+autumn <- subset(dc, month=='9' | month=='10' | month=='11')
+winter <- subset(dc, month=='12' | month=='1' | month=='2')
+
+spring$season <- "spring"
+summer$season <- "summer"
+autumn$season <- "autumn"
+winter$season <- "winter"
+
+ss <- rbind.data.frame(spring,summer,autumn,winter)
+ss$season <- as.factor(ss$season)
+```
+
+
+```{r out.width= "60%",out.extra='style="float:right; padding:10px"'}
+ggplot(ss, aes(season,Lper100km)) + geom_boxplot() + facet_wrap(~type)+labs(title="Lper100km vs Season in 3 Car Types") + theme(plot.title = element_text(hjust = 0.5))
+```
+
+### The relationship between fuel efficiency and the season of the year
+
+<br>
+
+Regarding to the season, we divide 12 months into four seasons: 
+
+Spring: March, April and May
+Summer: June, July and August
+Autumn: September, October and November
+Winter: January, February and December
+
+According to the boxplot below, there is no significant difference between the fuel efficiency in Spring, Summer and Autumn. However, the fuel efficiency in Winter is relatively higher than other three seasons, which may lead to the colder weather.
+
+<br>
+
+
+
+```{r out.width= "60%",out.extra='style="float:right; padding:10px"'}
+ggplot(ss, aes(City, Lper100km)) + geom_point() + geom_smooth(method=lm, se=FALSE) + facet_wrap(~type) + labs(title="Lper100km vs City in 3 Car Types") + theme(plot.title = element_text(hjust = 0.5))
+```
+
+### The relationship between fuel efficiency and the city driving
+
+<br>
+
+According the scatterplots and regression lines below, we observe that for Saturn and Prius2019, along with the increase of city driving, more fuels are used per 100 kilometers, which indicates to the lower fuel efficiency. However, for Prius2007, the regression line seems straight. For different value of city driving, the fuel efficiency does not have much change.
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+
+```{r}
+s1 <- cbind.data.frame("Lper100km"=data2$Lper100km, "age"=data2$Year-2007, "month"=data2$Month, "City"=data2$City, "Station"=data2$Station, "type"="Prius2007")
+
+s2 <- cbind.data.frame("Lper100km"=data3$Lper100km, "age"=data3$Year-2019, "month"=data3$Month, "City"=data3$City, "Station"=data3$Station, "type"="Prius2019")
+
+dsat <- rbind.data.frame(s1,s2)
+dsat <-completeFun(dsat, c("Lper100km","age","month","City","Station"))
+dsat<-dsat[dsat$Station!="",]
+dsat$Station <- as.factor(dsat$Station)
+```
+
+
+```{r out.width= "65%",out.extra='style="float:right; padding:10px"',fig.width=12,fig.height=6}
+ggplot(dsat, aes(Station,Lper100km)) + geom_boxplot() + facet_wrap(~type) + theme(axis.text.x = element_text(angle = 90)) + labs(title="Lper100km vs Station in 2 Car Types") + theme(axis.text.x = element_text(size = 10))+ theme(plot.title = element_text(hjust = 0.5,size=20))
+```
+
+### The relationship between fuel efficiency and the brand of gasoline
+
+<br>
+
+As the brand of gasoline only exists in two datasets: Prius2007.csv and Prius2019.csv, so we extract these two columns from the original datasets.
+
+According to the boxplot below, we observe that for different type of car, different brand of gasoline perform better.
+
+For Prius2007, get rid of the influence of outliers, Loves seems to have lower fuel efficiency as its median of litres per 100 kilometers is larger than other brands, while MF seems to have higher fuel efficiency.
+
+For Prius2019, all nine brand seem to have relatively identical fuel efficiency.
+
+<br>
+
+```{r out.width= "65%",out.extra='style="float:right; padding:10px"'}
+ds1 <- as.data.frame(aggregate(s1[,1],list(s1[,5]),mean))
+names(ds1)[1] <- "Station"
+names(ds1)[2] <- "Lper100km_mean"
+ds1 <- ds1[-1,]
+ds1 <-completeFun(ds1, "Lper100km_mean")
+ds2 <- as.data.frame(aggregate(s2[,1],list(s2[,5]),mean))
+names(ds2)[1] <- "Station"
+names(ds2)[2] <- "Lper100km_mean"
+ds2 <- ds2[-1,]
+ds2 <-completeFun(ds2, "Lper100km_mean")
+
+plot1<-ggplot(ds1, aes(Station,Lper100km_mean)) + geom_point() + theme(axis.text.x = element_text(angle = -90))+labs(title="The Mean of Lper100km in Four Seasons for Prius 2007")+theme(plot.title = element_text(hjust=0.5,size = 8))
+
+plot2<-ggplot(ds2, aes(Station,Lper100km_mean)) + geom_point() + theme(axis.text.x = element_text(angle = -90))+labs(title="The Mean of Lper100km in Four Seasons for Prius 2019")+theme(plot.title = element_text(hjust=0.5,size = 8))
+
+grid.arrange(plot1, plot2, ncol=2)
+```
+
+<br>
+
+If we calculate the mean of litres per 100 kilometers for different brands, we get the same result for Prius2009 that Loves seems to have lower fuel efficiency, while MF seems to have higher fuel efficiency than other brands. For Prius2017, Esso seems to have lower fuel efficiency, while Pioneer seems to have higher fuel efficiency than other brands. However, the difference is within 0.6 litres per 100 kilometers.
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+## If the “Gauge” says I have 2/10 of a tank of gas, how much is really there?
+
+
+```{r out.width= "65%",out.extra='style="float:right; padding:10px"'}
+
+#If the “Gauge” says I have 2/10 of a tank of gas, how much is really there?
+#plot for Prius 2007
+data2tmp<-completeFun(data2, c("Fill","Litres","Gauge"))
+data2tmp<-data2tmp[data2tmp$Fill==1,]
+tank10<-mean(data2tmp$Litres/(10-data2tmp$Gauge)*10)
+data2tmp$Litres2<-tank10-data2tmp$Litres
+
+      
+lab<-aggregate(data2tmp[,c(12,16)], list(class=data2tmp$Gauge), mean)
+lab$Gauge<-c(1:10)
+data2tmp$Gauge<-factor(data2tmp$Gauge)
+plot1<-ggplot(data2tmp, aes(x=Gauge, y=Litres2))
+plot21<-plot1+geom_point()+geom_label(label =lab$class,data=lab)+labs(title="Litres vs Gauge for Prius 2007")+theme(plot.title = element_text(hjust = 0.5))
+
+#plot for Prius 2019
+data3tmp<-completeFun(data3, c("Fill","Litres","Gauge"))
+data3tmp<-data3tmp[data3tmp$Fill==1,]
+tank10<-mean(data3tmp$Litres/(10-data3tmp$Gauge)*10)
+data3tmp$Litres2<-tank10-data3tmp$Litres
+
+      
+lab<-aggregate(data3tmp[,c(12,16)], list(class=data3tmp$Gauge), mean)
+data3tmp$Gauge<-factor(data3tmp$Gauge)
+plot1<-ggplot(data3tmp, aes(x=Gauge, y=Litres2))
+plot22<-plot1+geom_point()+geom_label(label =lab$class,data=lab)+labs(title="Litres vs Gauge for Prius 2019")+theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(plot21, plot22, ncol=2)
+```
+
+<br>
+
+We extract the `Gauge` column from the Prius2007.csv and Prius2019.csv.
+
+All labels on the plot indicate the mean litres of oil in the tank at that stage.
+
+If we focus on 2/10 of a tank of gas, for Prius2007, there is nearly 7 (7.1181600) litres there, while for Prius2019, there is nearly 6 (6.160955) litres there.
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+<br>
+
+## Does the fuel efficiency change along with the increase of kilometers?
+
+
+```{r out.width= "100%",out.extra='style="float:right; padding:10px"',fig.width=12}
+data1tmp<-completeFun(data1, c("Lper100km","Km"))
+data1tmp<-data1tmp[,c("Lper100km","Km")]
+data1tmp$interval<-factor(cut_interval(data1tmp$Km,8))
+data1tmp$type<-"Saturn"
+plot1<-ggplot(data1tmp,aes(x=interval,y=Lper100km))+geom_boxplot()+ 
+  theme(axis.text.x = element_text(angle = -90),plot.title = element_text(size = 15))+labs(x="Interval of Km ",title="Lper100km vs Km for Saturn")+theme(plot.title = element_text(hjust = 0.5))
+
+data2tmp<-completeFun(data2, c("Lper100km","Km"))
+data2tmp<-data2tmp[,c("Lper100km","Km")]
+data2tmp$interval<-factor(cut_interval(data2tmp$Km,10))
+data2tmp$type<-"Prius2007"
+plot2<-ggplot(data2tmp,aes(x=interval,y=Lper100km))+geom_boxplot()+ 
+  theme(axis.text.x = element_text(angle = -90),plot.title = element_text(size = 15))+labs(x="Interval of Km ",title="Lper100km vs Km for Prius 2007")+theme(plot.title = element_text(hjust = 0.5))
+
+data3tmp<-completeFun(data3, c("Lper100km","Km"))
+data3tmp<-data3tmp[,c("Lper100km","Km")]
+data3tmp$interval<-factor(cut_interval(data3tmp$Km,5))
+data3tmp$type<-"Prius2019"
+plot3<-ggplot(data3tmp,aes(x=interval,y=Lper100km))+geom_boxplot()+ 
+  theme(axis.text.x = element_text(angle = -90),plot.title = element_text(size = 15))+labs(x="Interval of Km ",title="Lper100km vs Km for Prius 2019")+theme(plot.title = element_text(hjust = 0.5))
+
+grid.arrange(plot1, plot2,plot3, nrow = 1)
+```
+
+<br>
+
+We divide the total number of kilometers into several intervals for each car. 
+
+For Saturn, we divide the total number of kilometers into 8 intervals. We observe that the fuel efficiency generally shows a downward trend as the median of litres per 100 kilometers increases over time. However, there are two times of the increase of the fuel efficiency after 50900km and 176000km. Our guess for this result is that the car may have two maintainences at those kilometers. After each maintainence, the fuel efficiency would increase for a period.
+
+For Prius2007, we divide the total number of kilometers into 10 intervals. We observe that the fuel efficiency does not have a significant change over time.
+
+For Prius2019, we divide the total number of kilometers into 5 intervals. We observe that its fuel efficiency is high at the beginning around 500km and gradually lower after 2000km. Our guess is that the brandnew car may have high fuel efficiency. The longer it has been used, the lower the fuel efficiency.
+
+## The relationship between month and the fuel consumption
+
+
+```{r out.width= "100%",out.extra='style="float:right; padding:10px"',fig.width=12}
+d1 <- cbind.data.frame("Litres"=data1$Litres,"month"=data1$Month,  "type"="Saturn","year"=data1$Year)
+d1<-completeFun(d1, c("month","year","Litres"))
+d2 <- cbind.data.frame("Litres"=data2$Litres, "month"=data2$Month,  "type"="Prius2007","year"=data2$Year)
+d2<-completeFun(d2, c("month","year","Litres"))
+d3 <- cbind.data.frame("Litres"=data3$Litres, "month"=data3$Month,  "type"="Prius2019","year"=data3$Year)
+d3<-completeFun(d3, c("month","year","Litres"))
+m1<-aggregate(d1$Litres, by=list(d1$month,d1$year), FUN=sum)
+mm1<-aggregate(m1$x, by=list(m1$Group.1), FUN=mean)
+mm1[is.na(mm1)] <- 0
+mm1$type<-"Saturn"
+
+p1<-ggplot(mm1,aes(y=x, x=factor(Group.1))) + 
+    geom_bar(position = position_dodge(preserve = "single"),colour="black",fill="#FF9999", stat="identity",width=0.8)+
+  labs(x="month",y="average litres",title="Average Litres vs Month for Saturn") + theme(axis.text.x = element_text(size = 10))+ theme(plot.title = element_text(hjust = 0.5,size=14))+theme(legend.position = "none")
+
+
+m2<-aggregate(d2$Litres, by=list(d2$month,d2$year), FUN=sum)
+mm2<-aggregate(m2$x, by=list(m2$Group.1), FUN=mean)
+mm2[is.na(mm2)] <- 0
+mm2$type<-"Prius2007"
+p2<-ggplot(mm2,aes(y=x, x=factor(Group.1))) + 
+    geom_bar(position = position_dodge(preserve = "single"),colour="black",fill="#7fccf5", stat="identity",width=0.8)+
+  labs(x="month",y="average litres",title="Average Litres vs Month for Prius 2007") + theme(axis.text.x = element_text(size = 10))+ theme(plot.title = element_text(hjust = 0.5,size=14))+theme(legend.position = "none")
+
+m3<-aggregate(d3$Litres, by=list(d3$month,d3$year), FUN=sum)
+mm3<-aggregate(m3$x, by=list(m3$Group.1), FUN=mean)
+mm3[is.na(mm3)] <- 0
+mm3$type<-"Prius2019"
+p3<-ggplot(mm3,aes(y=x, x=factor(Group.1))) + 
+    geom_bar(position = position_dodge(preserve = "single"),colour="black",fill="#9df57f", stat="identity",width=0.8)+
+  labs(x="month",y="average litres",title="Average Litres vs Month for Prius 2019") + theme(axis.text.x = element_text(size = 10))+ theme(plot.title = element_text(hjust = 0.5,size=14))+theme(legend.position = "none")
+
+grid.arrange(p1, p2,p3, nrow = 1)
+```
+
+Regarding to the three bar charts, we can observe the relationship between month and the fuel consumption. Genereally speaking, for all three cars, the fuel consumption is high in July and August and relatively low in January.
+
+## Conclusion
+
+In this project, we analyze 6 questions, including the obvious recording errors in the files, the accuracy of "mileage", variables related to fuel efficiency, real values of "Gauge", the fuel efficiency changes along with the increase of kilometers and the relationship between month and the fuel consumption.
+
+To sum up, we find that the car with newest technology tend to have higher fuel efficiency than other older cars. However, along with the increase of cumulative kilometers, the fuel efficiency will gradually decrease. In addition, the car type, the age of car, the season and the brand of gasoline may have an impact on the fuel efficiency, but the relationship varies with each car. Last, based on the result about the fuel consumption, we conclude that these three cars are more used in summer time than in winter time.
+
+
